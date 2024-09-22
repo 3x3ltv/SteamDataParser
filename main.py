@@ -70,10 +70,23 @@ def get_game_details(game_url):
         single_player = 1 if soup.select_one(
             'img.category_icon[src="https://store.akamai.steamstatic.com/public/images/v6/ico/ico_singlePlayer.png"]') else 0
 
-        return release_date, price, genre, positive_reviews_percentage, in_game_purchases, awards, linux_support, single_player
+        # Извлечение рейтинга из блока id="game_area_reviews"
+        review_block = soup.select_one('#game_area_reviews')
+        game_rating = None
+        if review_block:
+            first_br_tag = review_block.find('br')
+            if first_br_tag and first_br_tag.next_sibling:
+                rating_text = first_br_tag.next_sibling.strip()
+                try:
+                    game_rating = float(rating_text.split('/')[0])
+                except (ValueError, IndexError):
+                    game_rating = 0
+
+        return release_date, price, genre, positive_reviews_percentage, in_game_purchases, awards, linux_support, single_player, game_rating
+
     except Exception as e:
         print(f"Error fetching details for {game_url}: {e}")
-        return 'N/A', 'N/A', 'N/A', 'N/A', 0, 0, 0, 0
+        return 'N/A', 'N/A', 'N/A', 'N/A', 0, 0, 0, 0, 0
 
 
 def fetch_games_from_page(page_number):
@@ -97,7 +110,7 @@ def fetch_games_from_page(page_number):
 def main():
     all_game_data = []
     page_number = 0
-    max_games = 2000
+    max_games = 3000
 
     while len(all_game_data) < max_games:
         print(f"Fetching page {page_number + 1}...")
@@ -127,21 +140,6 @@ def main():
             if details is None:
                 continue
 
-            release_date, price, genre, positive_reviews_percentage, in_game_purchases, awards, linux_support, single_player = details
-
-            if game_name and game_id:
-                all_game_data.append({
-                    'Game Name': game_name,
-                    'Game ID': game_id,
-                    'Release Date': release_date,
-                    'Price': price,
-                    'Genre': genre,
-                    'Positive Reviews Percentage': positive_reviews_percentage,
-                    'In Game Purchases': in_game_purchases,
-                    'Awards': awards,
-                    'Linux Support': linux_support,
-                    'Single Player': single_player
-                })
 
         print(f"Collected {len(all_game_data)} games so far.")
 
@@ -158,7 +156,7 @@ def main():
         with open(csv_filename, mode='w', newline='', encoding='utf-8') as file:
             writer = csv.DictWriter(file, fieldnames=['Game Name', 'Game ID', 'Release Date', 'Price', 'Genre',
                                                       'Positive Reviews Percentage', 'In Game Purchases', 'Awards',
-                                                      'Linux Support', 'Single Player'])
+                                                      'Linux Support', 'Single Player', 'GM rating'])
             writer.writeheader()
             for game in all_game_data:
                 writer.writerow(game)
